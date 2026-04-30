@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -16,7 +16,6 @@ class TattooStyle:
     abstract_context: str
     image_prompt: str
     ai_image_url: str | None = None
-    ai_image_base64: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
     image_generated_at: str | None = None
@@ -79,7 +78,7 @@ def save_styles(styles: list[TattooStyle]) -> None:
     STYLE_CACHE_PATH.write_text(json.dumps([s.to_dict() for s in styles], indent=2))
 
 
-def set_style_image(style_name: str, image_b64: str) -> None:
+def set_style_image(style_name: str, image_url: str) -> None:
     styles = load_styles()
     now = _now_iso()
     for style in styles:
@@ -88,6 +87,6 @@ def set_style_image(style_name: str, image_b64: str) -> None:
                 style.created_at = now
             style.updated_at = now
             style.image_generated_at = now
-            style.ai_image_base64 = image_b64
+            style.ai_image_url = image_url
             break
     save_styles(styles)
