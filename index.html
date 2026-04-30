@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOTC Tattoo Mixer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; background:#111; color:#eee; }
+    .container { max-width: 900px; margin: auto; }
+    input, button { padding: .6rem; margin: .3rem 0; width:100%; border-radius:8px; border:1px solid #444; background:#1d1d1d; color:#fff; }
+    button { cursor:pointer; background:#7b2cf3; border:none; font-weight:600; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap:1rem; margin-top:1rem; }
+    .card { background:#1a1a1a; border:1px solid #333; border-radius:12px; padding:1rem; }
+    .style { color:#c9a3ff; font-weight:bold; margin-bottom:.5rem; }
+    .prompt { font-size:.9rem; color:#bbb; margin-top:.6rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🩸 BOTC Tattoo Mixer</h1>
+    <p>Enter two roles (or one theme) and generate 5 tattoo-style concept ideas with descriptions + AI image prompts.</p>
+
+    <label for="role1">Role / Theme 1</label>
+    <input id="role1" placeholder="e.g., Ravenkeeper" />
+
+    <label for="role2">Role / Theme 2 (optional)</label>
+    <input id="role2" placeholder="e.g., Scarlet Woman" />
+
+    <button id="generateBtn">Generate 5 Style Ideas</button>
+
+    <div id="results" class="grid"></div>
+  </div>
+
+  <script>
+    const styles = [
+      {
+        name: "American Traditional",
+        descriptor: "bold black outlines, limited red/black palette, strong iconography"
+      },
+      {
+        name: "Blackwork / Dotwork",
+        descriptor: "heavy contrast black, geometric halos, stippled shading"
+      },
+      {
+        name: "Neo-Traditional",
+        descriptor: "ornamental framing, richer shadows, dramatic character focus"
+      },
+      {
+        name: "Fine Line",
+        descriptor: "clean thin lines, subtle symbols, elegant negative space"
+      },
+      {
+        name: "Dark Surrealism",
+        descriptor: "dreamlike symbolism, eerie composition, ritual atmosphere"
+      }
+    ];
+
+    function capitalize(text) {
+      return text
+        .split(" ")
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+    }
+
+    function buildConcept(a, b, style) {
+      const core = b ? `${a} + ${b}` : a;
+      const description = b
+        ? `A ${style.name} concept blending ${a} and ${b}: dual symbolism, mirrored elements, and a hidden BOTC clockface motif to represent deception vs truth.`
+        : `A ${style.name} concept inspired by ${a}: a central emblem with BOTC motifs (grimoire sigils, moon phases, and the town square bell) to capture mystery and deduction.`;
+
+      const aiPrompt = `Tattoo flash design, ${style.name}, ${style.descriptor}, Blood on the Clocktower theme, ${core}, high detail, stencil-ready composition, skin-safe spacing, dramatic contrast, no text`;
+
+      return { description, aiPrompt };
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", () => {
+      const role1 = capitalize(document.getElementById("role1").value.trim());
+      const role2 = capitalize(document.getElementById("role2").value.trim());
+      const results = document.getElementById("results");
+      results.innerHTML = "";
+
+      if (!role1) {
+        results.innerHTML = `<div class="card">Please enter at least one role or theme.</div>`;
+        return;
+      }
+
+      styles.forEach(style => {
+        const { description, aiPrompt } = buildConcept(role1, role2, style);
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="style">${style.name}</div>
+          <div>${description}</div>
+          <div class="prompt"><strong>AI Prompt:</strong> ${aiPrompt}</div>
+        `;
+        results.appendChild(card);
+      });
+    });
+  </script>
+</body>
+</html>
