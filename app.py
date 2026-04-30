@@ -1,6 +1,4 @@
 import logging
-import os
-
 import streamlit as st
 
 from services.image_generation import ImageGenerationError, generate_style_image
@@ -11,13 +9,12 @@ logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="BOTC Tattoo Mixer", page_icon="🩸", layout="wide")
 
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    st.error("OPENAI_API_KEY is not configured")
-    st.stop()
 
 if "generated_images" not in st.session_state:
     st.session_state.generated_images = {}
+
+if "failed_images" not in st.session_state:
+    st.session_state.failed_images = {}
 
 st.title("🩸 BOTC Tattoo Mixer")
 st.write(
@@ -90,17 +87,22 @@ if st.session_state.get("show_styles"):
                     else:
                         button_label = "Generate Image"
 
+                    if st.session_state.failed_images.get(style_name):
+                        st.caption("Previous generation attempt failed. Click the button to retry.")
+
                     if st.button(button_label, key=f"gen-{style_name}"):
-                        with st.spinner("Generating tattoo preview..."):
-                            try:
+                        try:
+                            with st.spinner("Generating tattoo preview..."):
                                 image_url = generate_style_image(
                                     style_name=style_name,
                                     abstract_context=style["abstract_context"],
                                     extra_prompt=concept["ai_prompt"],
                                 )
                                 st.session_state.generated_images[style_name] = image_url
+                                st.session_state.failed_images[style_name] = False
                                 set_style_image(style_name, image_url)
                                 st.rerun()
-                            except ImageGenerationError as exc:
-                                st.error("Image generation failed")
-                                logger.exception("Image generation failed: %s", exc)
+                        except ImageGenerationError as exc:
+                            st.session_state.failed_images[style_name] = True
+                            st.error(str(exc))
+                            logger.exception("Image generation failed: %s", exc)
