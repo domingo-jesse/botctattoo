@@ -1,18 +1,23 @@
 import logging
+import os
 
 import streamlit as st
 
-from services.image_generation import (
-    ImageGenerationError,
-    b64_to_bytes,
-    generate_style_image,
-)
+from services.image_generation import ImageGenerationError, generate_style_image
 from services.tattoo_styles import load_styles, set_style_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="BOTC Tattoo Mixer", page_icon="🩸", layout="wide")
+
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    st.error("OPENAI_API_KEY is not configured")
+    st.stop()
+
+if "generated_images" not in st.session_state:
+    st.session_state.generated_images = {}
 
 st.title("🩸 BOTC Tattoo Mixer")
 st.write(
@@ -54,8 +59,13 @@ with col2:
     role2 = st.text_input("Role / Theme 2 (optional)", placeholder="e.g., Scarlet Woman")
 
 if st.button("Generate 5 Style Ideas", type="primary"):
-    role1 = capitalize(role1.strip())
-    role2 = capitalize(role2.strip())
+    st.session_state.show_styles = True
+    st.session_state.role1 = capitalize(role1.strip())
+    st.session_state.role2 = capitalize(role2.strip())
+
+if st.session_state.get("show_styles"):
+    role1 = st.session_state.get("role1", "")
+    role2 = st.session_state.get("role2", "")
 
     if not role1:
         st.warning("Please enter at least one role or theme.")
@@ -65,36 +75,32 @@ if st.button("Generate 5 Style Ideas", type="primary"):
             concept = build_concept(role1, role2, style)
             with cards[i % 2]:
                 with st.container(border=True):
-                    st.subheader(style["style_name"])
-                    st.write(concept["description"])
+                    style_name = style["style_name"]
+                    st.subheader(style_name)
+                    st.write(style["description"])
                     st.markdown(f"**Abstract context:** {style['abstract_context']}")
                     st.caption("AI Prompt")
                     st.code(concept["ai_prompt"], language="text")
 
-                    if style.get("ai_image_base64"):
-                        st.image(
-                            b64_to_bytes(style["ai_image_base64"]),
-                            caption=f"{style['style_name']} AI preview",
-                            use_container_width=True,
-                        )
-                        button_label = "Regenerate Preview"
-                    else:
-                        button_label = "Generate AI Preview"
+                    image_url = st.session_state.generated_images.get(style_name) or style.get("ai_image_url")
 
-                    if st.button(button_label, key=f"gen-{style['style_name']}"):
+                    if image_url:
+                        st.image(image_url, caption=f"{style_name} AI preview", use_container_width=True)
+                        button_label = "Regenerate Image"
+                    else:
+                        button_label = "Generate Image"
+
+                    if st.button(button_label, key=f"gen-{style_name}"):
                         with st.spinner("Generating tattoo preview..."):
                             try:
-                                image_b64 = generate_style_image(
-                                    style_name=style["style_name"],
+                                image_url = generate_style_image(
+                                    style_name=style_name,
                                     abstract_context=style["abstract_context"],
-                                    image_prompt=concept["ai_prompt"],
+                                    extra_prompt=concept["ai_prompt"],
                                 )
-                                set_style_image(style["style_name"], image_b64)
-                                st.success("Preview generated.")
+                                st.session_state.generated_images[style_name] = image_url
+                                set_style_image(style_name, image_url)
                                 st.rerun()
                             except ImageGenerationError as exc:
-                                if str(exc) == "OPENAI_API_KEY is not configured.":
-                                    st.error("OPENAI_API_KEY is not configured.")
-                                else:
-                                    st.error(str(exc))
-                                    logger.exception("Image generation failed for %s", style["style_name"])
+                                st.error("Image generation failed")
+                                logger.exception("Image generation failed: %s", exc)
