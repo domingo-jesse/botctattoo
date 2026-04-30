@@ -1,6 +1,6 @@
 import logging
-import os
 
+import streamlit as st
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -10,13 +10,16 @@ class ImageGenerationError(Exception):
     """Raised when image generation cannot complete."""
 
 
+def get_openai_client() -> OpenAI:
+    api_key = st.secrets.get("OPENAI_API_KEY")
+
+    if not api_key or not api_key.strip():
+        raise ImageGenerationError("OPENAI_API_KEY is not configured.")
+
+    return OpenAI(api_key=api_key)
+
+
 def generate_style_image(style_name: str, abstract_context: str, extra_prompt: str = "") -> str:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ImageGenerationError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=api_key)
-
     prompt = f"""
 Tattoo design, black ink, high detail.
 Style: {style_name}
@@ -33,17 +36,32 @@ Clean linework, tattoo stencil ready.
 """
 
     try:
+        client = get_openai_client()
         result = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
             size="1024x1024",
         )
-        image_url = result.data[0].url if result.data else None
-        if not image_url:
-            raise ImageGenerationError("Image generation failed")
-        return image_url
+
+        if not result or not result.data or len(result.data) == 0:
+            raise ImageGenerationError("No image returned from OpenAI")
+
+        image_data = result.data[0]
+
+        if hasattr(image_data, "url") and image_data.url:
+            return image_data.url
+
+        if hasattr(image_data, "b64_json") and image_data.b64_json:
+            return f"data:image/png;base64,{image_data.b64_json}"
+
+        raise ImageGenerationError("Image response missing url and base64 data")
     except ImageGenerationError:
         raise
     except Exception as exc:
         logger.exception("Image generation failed")
+        message = str(exc)
+        if "401" in message or "invalid_api_key" in message:
+            raise ImageGenerationError(
+                "OpenAI authentication failed. Check your API key in Streamlit secrets."
+            ) from exc
         raise ImageGenerationError("Image generation failed") from exc
